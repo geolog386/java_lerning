@@ -1,0 +1,157 @@
+package com.javarush.games.minesweeper;
+
+import com.javarush.engine.cell.*; // импортируем классы
+
+import java.util.ArrayList;
+import java.util.List;
+
+
+public class MinesweeperGame extends Game {
+    private static final int SIDE = 9; // размер игрового поля
+    private int countMinesOnField = 0;// колличество мин
+    private int score; //  счет
+    private int countFlags; // колличество флагов
+    private int countClosedTiles = SIDE * SIDE; // колличество закрытых ячеек
+    private boolean isGameStopped; //  признак остановки игры
+    private static final String MINE = "\uD83D\uDCA3"; //  значек мины
+    private static final String FLAG = "\uD83D\uDEA9"; //  значек флага
+    private GameObject [][] gameField = new GameObject[SIDE][SIDE]; // создаем матрицу (двумерную) игрового поля
+
+    public void initialize() { // инициализация 
+        setScreenSize(SIDE, SIDE); // рисуем игровое поле
+        createGame(); // создаем игру
+    }
+
+    private void createGame() { // отрисовка игрового поля, раскалдывание мин
+        for (int i = 0; i < gameField.length; i++) {
+            for (int j = 0; j < gameField.length; j++) {
+                setCellValue(j, i, ""); // все поля заполняются пустотй
+                setCellColor(i, j, Color.BLUE); // закрашиваем ячейку
+                if (getRandomNumber(10) >= 8) { //  если есть мина
+                    gameField[j][i] = new GameObject(i, j, true); // создаем заминированную ячейку
+                    countMinesOnField++; // увеличиваем счетчик колличетва мин
+                } else { // если мины нет
+                    gameField[j][i] = new GameObject(i, j, false); // создаем безопастную ячейку
+                }
+            }
+            countFlags = countMinesOnField; // колличество флагов равно колличеству мин.
+        }
+        countMineNeighbors(); // вызываем метод подсчета мин у соседей.
+    }
+
+    private List<GameObject> getNeighbors(GameObject field){// возвращаем список соседей
+        List<GameObject> list = new ArrayList<>();
+        for(int i = field.y - 1; i <= field.y + 1; i ++){
+            for(int j = field.x - 1; j <= field.x + 1; j ++){
+                if(i >= 0 && i < SIDE && j >= 0 && j < SIDE) { //  проверка на попадание в границы
+                    if(!(i == field.y) || !(j == field.x)) {
+                        list.add(gameField[i][j]);
+                    }
+                }
+            }
+        }
+        return list;
+    }
+
+    private void countMineNeighbors() { // считаем колличество мин ячейк у соседей
+        for(int i = 0; i < gameField.length; i++){
+            for(int j = 0; j < gameField.length; j++){
+                if(!(gameField[j][i].isMine)){ // если ячейка не заминированна
+                    List<GameObject> list = getNeighbors(gameField[j][i]); // получили списко соседей
+                    int mineCount = 0; // счетчик мин у соседей
+                    for(GameObject cell: list) {
+                        if(cell.isMine){//  если ячейка заминированна то
+                            mineCount ++; // счетчик мин у соседей увеличивается.
+                        }
+                    }
+                    gameField[j][i].countMineNeighbors = mineCount; // записываем полученное число мин
+                }
+            }
+        }
+    }
+
+    private void openTile(int x, int y) {// метод открытия полей
+        if ((!gameField[y][x].isOpen) && (!gameField[y][x].isFlag) && (!isGameStopped) ){// если поле не открыто, и поле не флаг  и игра не остановленна
+            gameField[y][x].isOpen = true; // открываем ячейку
+            countClosedTiles--; //  уменшили коллиство закрытых ячеек
+            setCellColor(x, y, Color.GREEN); // зарисовываем открытуб ячейку
+            if (gameField[y][x].isMine) { //если полее с переданными координами мина
+                setCellValueEx(x, y, Color.RED, MINE);//  рисуем в открытой ячеке мину на красном фоне
+                gameOver(); //  заканчиваем игру
+            }
+            else { // если поле не мина
+                score = score + 5; // увлеичиваем счетчик очков
+                setScore(score); // выводим счет
+                if (gameField[y][x].countMineNeighbors == 0) { //  если кооличетсов мин  соседй равно 0
+                    setCellValue(x, y, ""); //  ячейка пустышка  ноль не пишем
+                    for (GameObject field : getNeighbors(gameField[y][x])) { // для каждого соседа из списка
+                        if (!field.isOpen) { //  если поле не окрыто
+                            openTile(field.x, field.y); // запускаем тоже самое.
+                        }
+                    }
+                }
+                else { // не мина и колличетво мин соседей не равно 0
+                    setCellNumber(x, y, gameField[y][x].countMineNeighbors); // вывести колличестов мин в соседник клетках
+                }
+            }
+        }
+
+    }
+
+    private void markTile (int x, int y) { // метод для флагов
+        if ((!isGameStopped) && (!gameField[y][x].isOpen)){ //  если игра не остановленна  и поле не открто
+            if (!gameField[y][x].isFlag) { //  если поле не флаг
+                if (countFlags != 0) { // если есть еще флаги
+                    gameField[y][x].isFlag = true; // присваиваем признак флаг полю
+                    countFlags--; // уменьшаем колличнство оставшихся флагов
+                    setCellValue(x, y, FLAG); //  рисуем в ячейке флаг
+                    setCellColor(x, y, Color.DIMGRAY); //закрашиваем цветом
+                }
+            } else { //  если поле флаг
+                gameField[y][x].isFlag = false; // убираем признак флага
+                countFlags++;  // увеличиваем колличество доступных флагов
+                setCellValue(x, y, ""); // меняем статус ячейки на неоткрыто
+                setCellColor(x, y, Color.DARKBLUE); // закрашиваем как было
+            }
+        }
+    }
+
+    private void gameOver(){
+        isGameStopped = true; // устанавливаем признак игра установленна
+        showMessageDialog(Color.BLACK, "YOU LOSE", Color.DARKRED, 100); // выводим надпись
+    }
+
+    private  void win(){
+        isGameStopped = true;
+        showMessageDialog(Color.BLACK, "YOU WIN", Color.GOLD, 100);
+    }
+    private void restart(){
+        isGameStopped = false; // усатналвиваем признак
+        countClosedTiles = SIDE * SIDE; //
+        countMinesOnField = 0;
+        countFlags = countMinesOnField;
+        score = 0;
+        setScore(score); // обнуляем счет
+        createGame();
+    }
+
+    @Override
+    public void onMouseLeftClick(int x, int y) { // Метод для левой кнопки мыши ( открывания ячеек)
+        if(!isGameStopped){ //  если игра не остановленна
+            openTile(x, y); // запускаем процесс открытия поля
+            if (countClosedTiles == countMinesOnField){ //если количество не открытых полей равно колличеству мин
+                win(); // ЗАпускаем метод победы.
+            }
+        }
+        else{
+            restart();
+        }
+    }
+
+    @Override
+    public void onMouseRightClick(int x, int y) { //  метод для правой кнопки мыши (флагов)
+        markTile(x, y);
+    }
+}
+
+
