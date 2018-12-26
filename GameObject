@@ -1,0 +1,16 @@
+package com.javarush.games.minesweeper;
+
+public class GameObject {
+    public int x;
+    public int y;
+    public boolean isMine; // признак мины да/нет
+    public boolean isOpen; // признак отрытости да/нет
+    public boolean isFlag; // признак флага.
+    public int countMineNeighbors; //  ссчетчик мин у соседей
+
+    public GameObject (int x, int y, boolean isMine){
+        this.x = x;
+        this.y = y;
+        this.isMine = isMine;
+    }
+}
